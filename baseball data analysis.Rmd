@@ -1,0 +1,111 @@
+---
+title: "Baseball hitters data analysis"
+author: "Arthur Gurupatham"
+date: "13/02/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(randomForest)
+library(gbm)
+library(ISLR)
+```
+
+
+## Cleaning up my data set and seed value
+
+```{r 3setup}
+#setting string value to the vowels in my name
+library(stringr)
+name<-"Arthur Nithiareuben Gurupatham"
+thevowels = c("a","e","i","o","u")
+num_vowels = vector(mode="integer", length=5)
+for (i in seq_along(thevowels)) {
+  temp = str_count(tolower(name), thevowels[i])
+  num_vowels[i] = sum(temp)
+}
+myseed<-4*sum(num_vowels)+t(c(100,200,300,400,500))%*%num_vowels
+myseed
+
+data(Hitters,package="ISLR")
+head(Hitters)
+#Omitting the null values
+Hitters<-na.omit(Hitters)
+Hitters$logSalary<-log(Hitters$Salary)
+names(Hitters)
+Hitters<-Hitters[,-19]
+set.seed(myseed)
+#Partitioning the training and test set
+train = sample (1: nrow(Hitters),nrow(Hitters)/(4/3)) 
+hitters.test=Hitters[-train,"logSalary"]
+```
+
+### Aplying bagging to the data set
+The mean squared error is 0.2283007. The code below applies bagging to the training set, then predicts logSalary for the test set and then presents the mean square error . 
+```{r bag}
+bag.hitters=randomForest(Hitters$logSalary~.,data=Hitters,subset=train,mtry=19,importance=TRUE)
+
+yhat.bag = predict(bag.hitters,newdata=Hitters[-train,])
+mean((yhat.bag-hitters.test)^2)
+```
+
+### Applying Random forest method to the data set
+The code below applies Random forests to the training set and then predicts logSalary for the test set. However, in each section, the mtry values (the number of predictor variables available to split on) are different. I used mtry=3, mtry=4 and mtry=5. 
+
+For mtry=3; MSE=0.1821136. 
+
+For mtry=4; MSE=0.191374.
+
+For mtry=5; MSE=0.1847165.
+
+From the MSE values above, it is evident that mtry=3 gave the best results since it had the smallest MSE out of 3 mtry values.
+```{r rf}
+rf.hittersf=randomForest(logSalary~.,data=Hitters,subset=train,mtry=3,importance=TRUE)
+rf.hittersf
+yhat.rff = predict(rf.hittersf,newdata=Hitters[-train,])
+mean((yhat.rff-hitters.test)^2)
+
+rf.hittersSec=randomForest(logSalary~.,data=Hitters,subset=train,mtry=4,importance=TRUE)
+rf.hittersSec
+yhat.rfs = predict(rf.hittersSec,newdata=Hitters[-train,])
+mean((yhat.rfs-hitters.test)^2)
+
+rf.hittersThird=randomForest(logSalary~.,data=Hitters,subset=train,mtry=5,importance=TRUE)
+rf.hittersThird
+yhat.rfT = predict(rf.hittersThird,newdata=Hitters[-train,])
+mean((yhat.rfT-hitters.test)^2)
+```
+
+### Applying Boosting to the data set
+In this section below, Boosting was applied to the training set and then predicting the logsalary value. However, the interaction depth value is different. I used interaction.depth=3, interaction.depth=4 and interaction.depth=5.
+
+For interaction.depth=3; MSE=0.3219393. 
+
+For interaction.depth=4, MSE=0.2979401. 
+
+For interaction.depth=5; MSE=0.3451877. 
+
+Based on the values above, interaction.depth=4 gets the best results. 
+```{r boost}
+boost.hitters1=gbm(logSalary~.,data=Hitters[train,],distribution="gaussian",n.trees=5000,interaction.depth=3)
+yhat.boost1=predict(boost.hitters1,newdata=Hitters[-train,],n.trees=5000)
+mean((yhat.boost1-hitters.test)^2)
+
+boost.hitters2=gbm(logSalary~.,data=Hitters[train,],distribution="gaussian",n.trees=5000,interaction.depth=4)
+yhat.boost2=predict(boost.hitters2,newdata=Hitters[-train,],n.trees=5000)
+mean((yhat.boost2-hitters.test)^2)
+
+boost.hitters3=gbm(logSalary~.,data=Hitters[train,],distribution="gaussian",n.trees=5000,interaction.depth=5)
+yhat.boost3=predict(boost.hitters3,newdata=Hitters[-train,],n.trees=5000)
+mean((yhat.boost3-hitters.test)^2)
+```
+
+### Graphing a variable Importance plot 
+
+The variable Importance Plot shows the significance of each variable in the dataset and its pertinence to the dataset. The %IncMSE is a measurement of how high the MSE of the variables will deviate based on a deviation in the data. The higher the %INCMSE, the more important the variable. The most important variables in the hitters dataset was CAtbats, CRuns, CRBI and CHits. This was determined since all these variables have a high %IncMSE and IncNodePurity. The results do make sense since in baseball, these are the measurements used to determine how good a player is, which is directly correlated to the salary they would receive. The least important variables were the league, division, errors and newleague, which also make sense in the scope of baseball. These variables have lower scores in %IncMSE and IncNodePurity. 
+
+```{r varimplot}
+varImpPlot(rf.hittersf, main="Variable Importance Plot for the Hitters Dataset")
+```
+
