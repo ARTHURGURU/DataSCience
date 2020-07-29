@@ -1,0 +1,52 @@
+---
+title: "Diabetes Analysis"
+author: "Arthur Gurupatham"
+date: "28/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 3
+### Basic information about the data set
+THe diabetes data set is a data set that contains 3 measurements (glucose, insulin and steady state plasma glucose) to determine which type of diabetes the adult has (Normal, Overt or Chemical). The data contains the information about 145 non-obese adults. 
+The source of this data is: Reaven, G. M. and Miller, R. G. (1979). An attempt to define the nature of chemical diabetes using a multidimensional analysis. Diabetologia 16:17-24.
+
+## Splitting Data set and applying mixture discriminant analysis
+```{r MDA}
+library(mclust)
+data("diabetes") 
+x<-diabetes[,-1] 
+x<-scale(x) 
+
+#I chose 36, for the unlabelled split, since 145*0.25 is approximately 36.
+diabetes_delete<-rep(0,36)
+k<-1
+for(i in 1:dim(diabetes)[1]){
+  if(i%%4==0){diabetes_delete[k]<-i; k<-k+1}
+}
+
+diabetesMclustDA <- MclustDA(x[-diabetes_delete,], diabetes[-diabetes_delete,1])
+summary(diabetesMclustDA, parameters = TRUE)
+summary(diabetesMclustDA, newdata = x[diabetes_delete,], newclass = diabetes[diabetes_delete,1])
+```
+
+### Applying the classification tree model to the data set
+```{r ClassTree}
+library(rpart)
+library(mclust)
+library(rattle)
+data("diabetes", package = "mclust")
+# split data into a 75% training set, 25% test set
+train <- sample(1:nrow(diabetes), size=nrow(diabetes)*0.75)
+test=diabetes[-train]
+diabetes_tree <- rpart(class ~ ., data = diabetes, subset = train)
+fancyRpartPlot(diabetes_tree) 
+table(predict(diabetes_tree, diabetes[-train,], type = "class"),
+      diabetes[-train, "class"])
+```
+
+## Analysis of the methods
+From the MDA, we can see that 55.5% of the data was Normal cases, 29.26% were Chemical and 25.2% of cases were Overt. Whereas, in the Classification tree model, the distribtuion of classes is different, as seen in the third level of the rattle plot. In MDA, the classification error of the test matrix was 5.56%. This was calculated by counting the misclassified data points (2) and dividing it by the total number of data points (36) and 2/36=0.0556=5.56%. Using a similar approach, we can see that for classification tress, the misclassification rate is 1/37=0.027=2.7%. Based on this fact, we can conclude that Classification tress is a better model approach for the diabetes data set than MDA. 
